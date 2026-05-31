@@ -10,8 +10,6 @@ env/
 
 # Environment / secrets
 .env
-.env.local
-*.env
 
 # macOS
 .DS_Store
