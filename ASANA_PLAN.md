@@ -265,3 +265,109 @@ Project = done when ALL true:
 - [ ] README explains setup + has live URL
 - [ ] Passwords hashed, never stored plain
 - [ ] JWT protecting `/calculate` + `/history`
+
+---
+
+# Build Guides (step-by-step teaching for each task)
+
+Detailed teaching notes for each backend/frontend file. Appended as we work through them.
+
+---
+
+## Guide 3.1 — `backend/app/database.py`
+
+**Goal:** Connect FastAPI to Postgres via SQLAlchemy. Provide `engine`, `SessionLocal`, `Base`, `get_db()` for rest of app.
+
+### Concepts (read first)
+
+**FastAPI** = Python web framework. Decorators turn functions into HTTP endpoints. Example shape:
+```python
+@app.get("/hello")
+def say_hi():
+    return {"message": "hi"}
+```
+
+**`.env`** = secrets file (gitignored). Code reads at runtime via `python-dotenv`:
+```python
+from dotenv import load_dotenv
+import os
+load_dotenv()
+db_url = os.getenv("DATABASE_URL")
+```
+
+**SQLAlchemy 3 pieces:**
+| Piece | What | When |
+|-------|------|------|
+| `engine` | connection pool to Postgres | once at startup |
+| `Session` | one transaction / unit of work | per HTTP request |
+| `Base` | parent class for ORM models | once |
+
+### Steps
+
+**Step 1 — Imports (4 lines)**
+
+| Symbol | From |
+|--------|------|
+| `create_engine` | `sqlalchemy` |
+| `sessionmaker`, `declarative_base` | `sqlalchemy.orm` |
+| `load_dotenv` | `dotenv` |
+| `os` | stdlib |
+
+Test: `python -c "import app.database"` — no error.
+
+**Step 2 — Load .env**
+```python
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
+```
+Test: `python -c "from app.database import DATABASE_URL; print(DATABASE_URL)"` — prints full URL.
+
+**Step 3 — Engine**
+```python
+engine = create_engine(DATABASE_URL)
+```
+Test: `python -c "from app.database import engine; c = engine.connect(); print('connected'); c.close()"` — prints `connected`.
+
+**Step 4 — Session factory**
+```python
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+```
+- `bind=engine` → which DB sessions will use
+- `autocommit=False` → must explicitly `.commit()`
+- `autoflush=False` → no surprise writes mid-query
+
+Test: `python -c "from app.database import SessionLocal; s = SessionLocal(); print(s); s.close()"`
+
+**Step 5 — Base class**
+```python
+Base = declarative_base()
+```
+Used in `models.py`: `class User(Base): __tablename__ = "users"`.
+
+Test: `python -c "from app.database import Base; print(Base)"`
+
+**Step 6 — `get_db()` dependency**
+```python
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
+
+**Why `yield` not `return`:** FastAPI runs route → continues past `yield` after route ends → `finally` closes connection. Prevents connection leaks. Standard FastAPI pattern, memorize it.
+
+Test: `python -c "from app.database import engine, SessionLocal, Base, get_db; print('all 4 imports work')"`
+
+### Common mistakes
+1. `load_dotenv()` called after `os.getenv` → empty value
+2. `Base = declarative_base` (no parens) → reference to function, not class
+3. `return db` instead of `yield db` → breaks FastAPI cleanup
+4. Run from project root not `backend/` → `.env` not found
+5. Missing `bind=engine` in sessionmaker → sessions don't know which DB
+
+### Done checklist
+- [ ] All 6 steps pass their individual smoke test
+- [ ] Final import-all test prints `all 4 imports work`
+- [ ] Commit: `feat(backend): SQLAlchemy database connection layer`
