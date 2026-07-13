@@ -371,3 +371,78 @@ Test: `python -c "from app.database import engine, SessionLocal, Base, get_db; p
 - [ ] All 6 steps pass their individual smoke test
 - [ ] Final import-all test prints `all 4 imports work`
 - [ ] Commit: `feat(backend): SQLAlchemy database connection layer`
+
+---
+
+## Guide 3.5 — `backend/tests/test_calculator.py`
+
+**Goal:** Prove `Calculator.evaluate()` is correct BEFORE building auth/routes on top of it. Bugs found here are cheap. Bugs found after routes exist are expensive.
+
+**Setup already done for you:** `backend/tests/` folder created, `pytest` installed in venv + added to `requirements.txt`.
+
+### Concepts (read first)
+
+**pytest test discovery** — pytest finds tests automatically by naming convention:
+- Files: must start with `test_` (you have `test_calculator.py` ✓)
+- Functions inside: must start with `test_`
+- No class needed, no registration — pytest just walks the file and collects `test_*` functions
+
+**`assert`** — pytest's core mechanism. A test function with no exception raised = pass. An `assert` that evaluates False = fail, and pytest prints a helpful diff.
+
+Generic shape (NOT your calculator, just the pytest syntax):
+```python
+def test_something():
+    result = some_function(2, 3)
+    assert result == 5
+```
+
+**Testing that an exception IS raised** — research `pytest.raises`. You need this for divide-by-zero and invalid-expression cases, since those should raise `CalculationError`, not return a value. Generic shape:
+```python
+def test_something_raises():
+    with pytest.raises(SomeException):
+        function_that_should_fail()
+```
+
+### Steps
+
+**Step 1 — Imports**
+
+What do you need from `app.calculator`? Look at what `calculator.py` exports: the class itself, plus the exception class you'll need for `pytest.raises`.
+
+**Step 2 — Instantiate**
+
+Decide: one `Calculator()` per test, or one shared instance? (Hint: `Calculator` has no state between calls — either works, but check what's simplest.)
+
+**Step 3 — Write test cases**
+
+Plan (from ASANA_PLAN 3.5) requires coverage of:
+- [ ] addition
+- [ ] subtraction
+- [ ] multiplication
+- [ ] division
+- [ ] division by zero → must raise, not crash, not return `inf`
+- [ ] invalid expression (e.g. malformed syntax, or something `calculator.py` explicitly disallows — check `_eval_node`'s final `raise` branch for what counts as "disallowed")
+
+**Guiding question:** what expression strings would exercise the `ast.UnaryOp` branch (e.g. `-5 + 3`)? Worth one test since it's separate logic from `BinOp`.
+
+**Guiding question:** what's a good "invalid expression" test input? Think about what `ast.parse` would choke on (`SyntaxError`) vs what your own `_eval_node` rejects (disallowed node types — e.g. a function call, a name/variable, an import). Testing both paths is stronger coverage than testing one twice.
+
+### Run it
+
+```
+cd backend
+./venv/bin/pytest tests/ -v
+```
+
+`-v` = verbose, shows each test name + pass/fail individually.
+
+### Common mistakes
+1. Test file not named `test_*.py` → pytest silently skips it
+2. Forgetting `import pytest` when using `pytest.raises`
+3. Testing division returns *exactly* `0.3333...` with `==` → floats need `pytest.approx()` for anything non-exact. (Does `10 / 3` need this? Does `10 / 2`?)
+4. Only testing the "happy path" — the div-by-zero and invalid-expression tests are the ones that actually catch bugs
+
+### Done checklist
+- [ ] `tests/test_calculator.py` written, all 6 required cases covered
+- [ ] `pytest tests/ -v` → all green
+- [ ] Commit: `test(backend): unit tests for Calculator class`
