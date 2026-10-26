@@ -48,3 +48,15 @@ def test_disallowed_expression():
     calc = Calculator()
     with pytest.raises(CalculationError):
         calc.evaluate("print(1)")
+
+
+def test_operator_precedence():
+    calc = Calculator()
+    result = calc.evaluate("2 + 3 * 4")
+    assert result == 14
+
+
+def test_parentheses():
+    calc = Calculator()
+    result = calc.evaluate("(2 + 3) * 4")
+    assert result == 20
