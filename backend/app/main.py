@@ -1,4 +1,3 @@
-from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -11,19 +10,15 @@ from app.routes import calc, users
 
 STATIC_DIR = Path(__file__).parent / "static"
 
-
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    # No-op on PostgreSQL, where database/schema.sql already created the tables.
-    Base.metadata.create_all(bind=engine)
-    yield
+# Runs at import so serverless hosts that skip lifespan events still get the
+# tables. A no-op on PostgreSQL, where database/schema.sql already created them.
+Base.metadata.create_all(bind=engine)
 
 
 app = FastAPI(
     title="Smart Calculator API",
     description="Register, log in with a JWT, evaluate arithmetic safely and keep a private history.",
     version="1.1.0",
-    lifespan=lifespan,
 )
 
 app.add_middleware(
