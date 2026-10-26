@@ -44,7 +44,7 @@ def history(
     rows = (
         db.query(CalculationHistory)
         .filter(CalculationHistory.user_id == current_user.id)
-        .order_by(CalculationHistory.created_at.desc())
+        .order_by(CalculationHistory.created_at.desc(), CalculationHistory.id.desc())
         .all()
     )
     return rows
